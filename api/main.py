@@ -5,6 +5,7 @@ from werkzeug.utils import secure_filename
 import firebase_admin
 from firebase_admin import credentials, storage
 from datetime import datetime, timedelta
+import requests
 app = Flask(__name__)
 CORS(app)
 
@@ -15,11 +16,11 @@ ALLOWED_EXTENSIONS = {'txt'}
 
 def fetch_text_content(url):
     try:
-        response = request.get(url)
+        response = requests.get(url)
         response.raise_for_status()  # Raise an exception for 4xx and 5xx status codes
 
         return response.text
-    except request.exceptions.RequestException as e:
+    except requests.exceptions.RequestException as e:
         print(f"Error fetching text content: {str(e)}")
         return None
 def get_download_url(file, file_name):
