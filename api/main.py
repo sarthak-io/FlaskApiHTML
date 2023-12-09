@@ -5,21 +5,40 @@ from werkzeug.utils import secure_filename
 import firebase_admin
 from firebase_admin import credentials, storage
 from datetime import datetime, timedelta
-
 app = Flask(__name__)
 CORS(app)
+
+cred = credentials.Certificate("htmldata-cb-firebase-adminsdk-77jcv-0cab9fad50.json")
+firebase_admin.initialize_app(cred, {'storageBucket': 'htmldata-cb.appspot.com'})
 
 ALLOWED_EXTENSIONS = {'txt'}
 
 def fetch_text_content(url):
     try:
-        response = requests.get(url)
+        response = request.get(url)
         response.raise_for_status()  # Raise an exception for 4xx and 5xx status codes
 
         return response.text
-    except requests.exceptions.RequestException as e:
+    except request.exceptions.RequestException as e:
         print(f"Error fetching text content: {str(e)}")
         return None
+def get_download_url(file, file_name):
+    expiration_time = datetime.utcnow() + timedelta(days=365)
+    expiration_timestamp = int(expiration_time.timestamp())
+    # Assuming the images are stored in Firebase Storage
+    bucket = storage.bucket()
+    blob = bucket.blob(file_name + "_" + str(expiration_timestamp))
+
+    # Convert file data to bytes
+    file_data = io.BytesIO(file.read())
+
+    # Upload the file using upload_from_file
+    blob.upload_from_file(file_data, content_type=file.content_type)
+
+
+    download_url = blob.generate_signed_url(expiration=expiration_timestamp)
+
+    return download_url
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -27,17 +46,17 @@ def allowed_file(filename):
 @app.route('/upload', methods=['POST'])
 def upload_image():
     try:
-        txt_files = {}
+        txtFiles = {}
         for key, file in request.files.items():
             if file and allowed_file(file.filename):
                 filename = secure_filename(file.filename)
                 download_url = get_download_url(file, filename)
-                txt_files[key] = download_url
-        return jsonify(txt_files), 200
+                txtFiles[key] = download_url
+        return jsonify(txtFiles), 200
     except Exception as e:
         print(f"Error uploading image: {str(e)}")
         return jsonify({'error': 'Internal Server Error'}), 500
-
+    
 @app.route('/fetch-text', methods=['POST'])
 def fetch_text():
     try:
@@ -60,3 +79,4 @@ def fetch_text():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
